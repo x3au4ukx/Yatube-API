@@ -1,6 +1,6 @@
-from rest_framework import serializers
+from rest_framework import serializers, validators
 
-from posts.models import Comment, Follow, Group, Post
+from posts.models import Comment, Follow, Group, Post, User
 
 
 class BaseAuthorSerializer(serializers.ModelSerializer):
@@ -46,9 +46,24 @@ class FollowSerializer(serializers.ModelSerializer):
     )
     following = serializers.SlugRelatedField(
         slug_field='username',
-        read_only=True
+        queryset=User.objects.all()
     )
 
     class Meta:
         model = Follow
         exclude = ('id',)
+
+    def validate(self, data):
+        current_user = self.context['request'].user
+        following_user = data['following']
+        if current_user == following_user:
+            raise serializers.ValidationError(
+                'Нельзя подписаться на самого себя!'
+            )
+        if Follow.objects.filter(
+            user=current_user, following=following_user
+        ).exists():
+            raise serializers.ValidationError(
+                'Вы уже подписаны на этого пользователя!'
+            )
+        return data
